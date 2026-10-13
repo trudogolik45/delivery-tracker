@@ -208,14 +208,16 @@ brandScoped.put(
       }
     }
 
+    // Строку могли удалить параллельно между проверкой existing и update.
     const row = await tenantDb(brand).cargo.update(cargoId, updates)
+    if (!row) return c.json({ error: 'not found' }, 404)
     return c.json({
-      id: row!.id,
-      title: row!.title,
-      fields: row!.fields as Record<string, string>,
-      photoUploadIds: row!.photoUploadIds,
-      photoUrls: await resolvePhotoUrls(brand.id, row!.photoUploadIds),
-      createdAt: row!.createdAt.toISOString(),
+      id: row.id,
+      title: row.title,
+      fields: row.fields as Record<string, string>,
+      photoUploadIds: row.photoUploadIds,
+      photoUrls: await resolvePhotoUrls(brand.id, row.photoUploadIds),
+      createdAt: row.createdAt.toISOString(),
     })
   },
 )

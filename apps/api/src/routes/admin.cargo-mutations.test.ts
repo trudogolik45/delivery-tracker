@@ -120,6 +120,20 @@ describe('PUT /admin/b/:slug/cargo/:cargoId', () => {
     expect(data.error).toBe('not found')
   })
 
+  it('returns 404 when cargo is deleted between the existence check and the update', async () => {
+    const update = vi.fn().mockResolvedValue(undefined)
+    vi.mocked(tenantDb).mockReturnValue(
+      makeTenantDb({ cargo: { ...makeTenantDb().cargo, update } }) as never,
+    )
+
+    const app = makeApp()
+    const res = await app.request(`/admin/b/brand-a/cargo/${CARGO_ID}`, jsonPut({ title: 'New' }))
+
+    expect(res.status).toBe(404)
+    const data = (await res.json()) as { error: string }
+    expect(data.error).toBe('not found')
+  })
+
   it('returns 400 with error body when findOwnedIds is shorter than photoUploadIds', async () => {
     // findOwnedIds returns only 0 results — photo uuid not owned by brand
     const findOwnedIds = vi.fn().mockResolvedValue([])
