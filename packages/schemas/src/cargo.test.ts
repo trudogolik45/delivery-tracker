@@ -8,6 +8,20 @@ describe('CargoUpdateSchema', () => {
     expect(parsed).toEqual({ title: 'New' })
   })
 
+  it('keeps only photos when the client sends only photos', () => {
+    const id = '44444444-4444-4444-8444-444444444444'
+
+    const parsed = CargoUpdateSchema.parse({ photoUploadIds: [id] })
+
+    expect(parsed).toEqual({ photoUploadIds: [id] })
+  })
+
+  it('treats an explicit empty photo list as "remove all photos"', () => {
+    const parsed = CargoUpdateSchema.parse({ photoUploadIds: [] })
+
+    expect(parsed).toEqual({ photoUploadIds: [] })
+  })
+
   it('rejects an empty update — there is nothing to change', () => {
     const result = CargoUpdateSchema.safeParse({})
 

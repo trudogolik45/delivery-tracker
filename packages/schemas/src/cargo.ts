@@ -19,20 +19,23 @@ const CargoFieldsSchema = z
   .refine((o) => Object.keys(o).length <= 32, { message: 'too many fields' })
 const CargoPhotoUploadIdsSchema = z.array(z.uuid()).max(20)
 
-export const CargoCreateSchema = z.object({
+const cargoShape = {
   title: z.string().min(1).max(255),
-  fields: CargoFieldsSchema.default({}),
-  photoUploadIds: CargoPhotoUploadIdsSchema.default([]),
+  fields: CargoFieldsSchema,
+  photoUploadIds: CargoPhotoUploadIdsSchema,
+}
+
+export const CargoCreateSchema = z.object({
+  ...cargoShape,
+  fields: cargoShape.fields.default({}),
+  photoUploadIds: cargoShape.photoUploadIds.default([]),
 })
 export type CargoCreate = z.infer<typeof CargoCreateSchema>
 
 // Без .default(): иначе частичный PUT подставит {} и [] и затрёт то, что клиент не прислал.
+// Присланное поле заменяется целиком: { fields: {...} } — новый полный набор полей.
 export const CargoUpdateSchema = z
-  .object({
-    title: CargoCreateSchema.shape.title,
-    fields: CargoFieldsSchema,
-    photoUploadIds: CargoPhotoUploadIdsSchema,
-  })
+  .object(cargoShape)
   .partial()
   .refine((o) => Object.keys(o).length > 0, { message: 'nothing to update' })
 export type CargoUpdate = z.infer<typeof CargoUpdateSchema>

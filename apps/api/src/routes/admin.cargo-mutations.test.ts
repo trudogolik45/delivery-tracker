@@ -158,6 +158,7 @@ describe('PUT /admin/b/:slug/cargo/:cargoId', () => {
     const res = await app.request(`/admin/b/brand-a/cargo/${CARGO_ID}`, jsonPut({}))
 
     expect(res.status).toBe(400)
+    expect(((await res.json()) as { error: string }).error).toBe('nothing to update')
     expect(update).not.toHaveBeenCalled()
   })
 

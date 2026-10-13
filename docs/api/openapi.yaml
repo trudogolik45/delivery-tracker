@@ -871,7 +871,11 @@ paths:
           application/json:
             schema:
               type: object
-              description: Все поля опциональны (partial update)
+              description: >-
+                Partial update: меняются только присланные поля, хотя бы одно
+                обязательно. Присланное поле заменяется целиком — `fields`
+                становится новым полным набором, `photoUploadIds: []` убирает
+                все фото.
               properties:
                 title:
                   type: string
@@ -893,6 +897,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Cargo"
+        "400":
+          description: >-
+            Ошибка валидации тела запроса: пустая правка (`nothing to update`),
+            превышены лимиты полей или неизвестный id фото. Тело — ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "404":
