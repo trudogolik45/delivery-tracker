@@ -34,7 +34,7 @@ delivery-tracker — multi-tenant система трекинга доставо
 - Порты захардкожены: api `:3000` (нет `PORT`), web `:5173`. На SPA ходи по `localhost`, **не** `127.0.0.1` — CORS запинен на `localhost:5173`.
 - Tenant-доступ к данным — только через `tenantDb(brand)` (`apps/api/src/db/tenant.ts`); `brands` — таблица резолва тенанта, к ней `.from(brands)` напрямую разрешён.
 - Все БД-таблицы tenant-данных несут `brandId`; контракт API↔web живёт в `packages/schemas` (Zod) — меняешь форму ответа там, не в роуте.
-- Деплой: push/merge в `main` → CI собирает образы в `ghcr.io/trudogolik45/delivery-tracker-v2/{api,web}:<sha>` → `bin/deploy` на VPS (migration-gate, zero-downtime rollout, verify `/version`, rollback). Рантайм-секреты — в `.env.production` **на VPS**, не в GitHub. Поток — `docs/runbook.md`.
+- Деплой: push/merge в `main` → CI собирает образы в `ghcr.io/trudogolik45/delivery-tracker/{api,web}:<sha>` → `bin/deploy` на VPS (migration-gate, zero-downtime rollout, verify `/version`, rollback). Рантайм-секреты — в `.env.production` **на VPS**, не в GitHub. Поток — `docs/runbook.md`.
 - Задачи трекаются через **bd (beads)**, НЕ TodoWrite/markdown; знания — `bd remember`. `bd prime` — контекст, `bd ready` — работа. Не коммить/пушить без явной просьбы.
 
 ## Don't (несущие инварианты — тронешь, всё сломается)

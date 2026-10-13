@@ -20,7 +20,7 @@ corepack enable && corepack prepare pnpm@latest --activate
 
 ```bash
 git clone <repo>
-cd delivery-tracker-v2
+cd delivery-tracker
 pnpm install
 ```
 
@@ -79,7 +79,7 @@ console.log('status=' + r.status, 'cors=' + r.headers.get('access-control-allow-
 
 ### Автоматический деплой (основной путь, CI/CD)
 
-Push/merge в `main` → GitHub Actions `build.yml` собирает образы api+web и пушит в `ghcr.io/trudogolik45/delivery-tracker-v2/{api,web}:<sha>` (auth = встроенный `GITHUB_TOKEN`, без PAT). По успешной сборке `deploy.yml` по ssh шипает `infra/` + `bin/deploy` на VPS и запускает `bin/deploy <sha>`:
+Push/merge в `main` → GitHub Actions `build.yml` собирает образы api+web и пушит в `ghcr.io/trudogolik45/delivery-tracker/{api,web}:<sha>` (auth = встроенный `GITHUB_TOKEN`, без PAT). По успешной сборке `deploy.yml` по ssh шипает `infra/` + `bin/deploy` на VPS и запускает `bin/deploy <sha>`:
 
 1. pull образов `<sha>`;
 2. **migration-gate**: additive-миграции применяются автоматически (`drizzle-kit migrate` в one-off контейнере нового образа, до смены кода); деструктивные (`DROP`/`ALTER COLUMN`/`DELETE`/`SET NOT NULL`) → **abort** с требованием ручного окна (см. «Database migrations»);

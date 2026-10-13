@@ -15,7 +15,7 @@ PROJECT=delivery-tracker-v2
 COMPOSE_FILE=infra/compose.prod.yml
 ENV_FILE=.env.production
 PG=${PROJECT}-postgres-1
-IMG=ghcr.io/trudogolik45/delivery-tracker-v2
+IMG=ghcr.io/trudogolik45/delivery-tracker
 LAST_GOOD=.last_good_tag
 
 SHA="${1:?usage: bin/deploy <git-sha> [--check]}"
