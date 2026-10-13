@@ -14,15 +14,28 @@ export const CargoWithPhotosSchema = CargoSchema.extend({
 })
 export type CargoWithPhotos = z.infer<typeof CargoWithPhotosSchema>
 
-export const CargoCreateSchema = z.object({
+const CargoFieldsSchema = z
+  .record(z.string().min(1).max(64), z.string().max(2000))
+  .refine((o) => Object.keys(o).length <= 32, { message: 'too many fields' })
+const CargoPhotoUploadIdsSchema = z.array(z.uuid()).max(20)
+
+const cargoShape = {
   title: z.string().min(1).max(255),
-  fields: z
-    .record(z.string().min(1).max(64), z.string().max(2000))
-    .refine((o) => Object.keys(o).length <= 32, { message: 'too many fields' })
-    .default({}),
-  photoUploadIds: z.array(z.uuid()).max(20).default([]),
+  fields: CargoFieldsSchema,
+  photoUploadIds: CargoPhotoUploadIdsSchema,
+}
+
+export const CargoCreateSchema = z.object({
+  ...cargoShape,
+  fields: cargoShape.fields.default({}),
+  photoUploadIds: cargoShape.photoUploadIds.default([]),
 })
 export type CargoCreate = z.infer<typeof CargoCreateSchema>
 
-export const CargoUpdateSchema = CargoCreateSchema.partial()
+// Без .default(): иначе частичный PUT подставит {} и [] и затрёт то, что клиент не прислал.
+// Присланное поле заменяется целиком: { fields: {...} } — новый полный набор полей.
+export const CargoUpdateSchema = z
+  .object(cargoShape)
+  .partial()
+  .refine((o) => Object.keys(o).length > 0, { message: 'nothing to update' })
 export type CargoUpdate = z.infer<typeof CargoUpdateSchema>

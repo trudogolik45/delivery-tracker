@@ -135,6 +135,33 @@ describe('PUT /admin/b/:slug/cargo/:cargoId', () => {
     expect(data.error).toBe('not found')
   })
 
+  it('updates only the title when the client sends only the title', async () => {
+    const update = vi.fn().mockResolvedValue(CARGO_ROW)
+    vi.mocked(tenantDb).mockReturnValue(
+      makeTenantDb({ cargo: { ...makeTenantDb().cargo, update } }) as never,
+    )
+
+    const app = makeApp()
+    const res = await app.request(`/admin/b/brand-a/cargo/${CARGO_ID}`, jsonPut({ title: 'New' }))
+
+    expect(res.status).toBe(200)
+    expect(update).toHaveBeenCalledWith(CARGO_ID, { title: 'New' })
+  })
+
+  it('returns 400 for an empty update', async () => {
+    const update = vi.fn()
+    vi.mocked(tenantDb).mockReturnValue(
+      makeTenantDb({ cargo: { ...makeTenantDb().cargo, update } }) as never,
+    )
+
+    const app = makeApp()
+    const res = await app.request(`/admin/b/brand-a/cargo/${CARGO_ID}`, jsonPut({}))
+
+    expect(res.status).toBe(400)
+    expect(((await res.json()) as { error: string }).error).toBe('nothing to update')
+    expect(update).not.toHaveBeenCalled()
+  })
+
   it('returns 400 with error body when findOwnedIds is shorter than photoUploadIds', async () => {
     // findOwnedIds returns only 0 results — photo uuid not owned by brand
     const findOwnedIds = vi.fn().mockResolvedValue([])
