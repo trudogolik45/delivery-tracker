@@ -44,3 +44,7 @@ pnpm run test
 | API-контракт (OpenAPI) | [docs/api/openapi.yaml](docs/api/openapi.yaml) |
 | Инструкции для агентов (Claude Code) | [CLAUDE.md](CLAUDE.md) |
 | Локальный запуск, smoke-тест, gotchas | [.claude/skills/run-delivery-tracker/SKILL.md](.claude/skills/run-delivery-tracker/SKILL.md) |
+
+## Лицензия
+
+[MIT](LICENSE).
