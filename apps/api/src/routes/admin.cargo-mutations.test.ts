@@ -129,6 +129,7 @@ describe('PUT /admin/b/:slug/cargo/:cargoId', () => {
     const app = makeApp()
     const res = await app.request(`/admin/b/brand-a/cargo/${CARGO_ID}`, jsonPut({ title: 'New' }))
 
+    expect(update).toHaveBeenCalledWith(CARGO_ID, expect.objectContaining({ title: 'New' }))
     expect(res.status).toBe(404)
     const data = (await res.json()) as { error: string }
     expect(data.error).toBe('not found')
