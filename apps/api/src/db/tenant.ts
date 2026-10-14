@@ -27,7 +27,8 @@ export type TripJoined = TripRow & {
   cargoPhotoUploadIds: string[]
 }
 
-// Lighter row for admin trip lists — no waypoints / route geometry / pauses.
+// Lighter row for admin trip lists — no waypoints / route geometry. Pauses stay:
+// without them the list cannot tell a paused trip (status Paused).
 export type TripListRow = Pick<
   TripRow,
   | 'id'
@@ -38,6 +39,7 @@ export type TripListRow = Pick<
   | 'startsAt'
   | 'desiredArrival'
   | 'timeline'
+  | 'pauses'
   | 'totalDistanceMeters'
 > & { cargoTitle: string | null }
 
@@ -158,6 +160,7 @@ export function tenantDb(brand: Brand): TenantDb {
     startsAt: trips.startsAt,
     desiredArrival: trips.desiredArrival,
     timeline: trips.timeline,
+    pauses: trips.pauses,
     totalDistanceMeters: trips.totalDistanceMeters,
     cargoTitle: cargo.title,
   } as const

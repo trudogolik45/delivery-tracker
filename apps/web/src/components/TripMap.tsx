@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { Trip } from '@delivery/schemas'
-import { interpolatePosition } from '@delivery/simulation/interpolate'
+import { interpolatePosition, totalPausedSeconds } from '@delivery/simulation/interpolate'
+import { tripAt } from '@delivery/simulation/trip-at'
 import { formatDateTime, formatMiles, formatTime } from '@/lib/format'
 import { MAP_STYLE } from '@/lib/map-style'
 
@@ -82,10 +83,9 @@ export function TripMap({ trip, cargoTitle, className, showFooter = true }: Trip
   }, [trip, now])
 
   const state = interpolatePosition(trip, now)
-  const eta = useMemo(() => {
-    const lastSegment = trip.segments[trip.segments.length - 1]!
-    return new Date(lastSegment.tEnd * 1000)
-  }, [trip])
+  const moment = tripAt(trip, now)
+  // Сегменты живут во времени таймлайна; на стене оно позже на всё время пауз.
+  const pausedSeconds = totalPausedSeconds(trip.pauses, now)
 
   return (
     <div className={`flex flex-col ${className ?? ''}`}>
@@ -93,7 +93,8 @@ export function TripMap({ trip, cargoTitle, className, showFooter = true }: Trip
         <header className="border-b px-6 py-3">
           <h1 className="text-lg font-semibold">{cargoTitle}</h1>
           <p className="text-xs text-muted-foreground">
-            ETA {formatDateTime(eta)} · {formatMiles(trip.totalDistance)} total
+            ETA {moment.completesAt !== null ? formatDateTime(moment.completesAt * 1000) : '—'} ·{' '}
+            {formatMiles(trip.totalDistance)} total
           </p>
         </header>
       )}
@@ -101,7 +102,9 @@ export function TripMap({ trip, cargoTitle, className, showFooter = true }: Trip
       {showFooter && (
         <footer className="border-t px-6 py-3 text-sm">
           <div className="mb-2 flex items-center justify-between">
-            <span className="font-medium">{describeStatus(state.segment, now)}</span>
+            <span className="font-medium">
+              {moment.isPaused ? 'Paused' : describeStatus(state.segment, now, pausedSeconds)}
+            </span>
             <span className="text-muted-foreground">{(state.progress * 100).toFixed(1)}%</span>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -119,9 +122,11 @@ export function TripMap({ trip, cargoTitle, className, showFooter = true }: Trip
 function describeStatus(
   segment: { type: 'driving' } | { type: 'rest'; reason: string; tEnd: number },
   now: number,
+  pausedSeconds: number,
 ): string {
   if (segment.type === 'driving') return 'On the road'
-  const until = formatTime(segment.tEnd * 1000)
+  const restEnd = segment.tEnd + pausedSeconds
+  const until = formatTime(restEnd * 1000)
   const label =
     segment.reason === 'break'
       ? 'Break'
@@ -132,6 +137,6 @@ function describeStatus(
           : segment.reason === 'service_stop'
             ? 'Service stop'
             : 'Waiting'
-  if (now >= segment.tEnd) return label
+  if (now >= restEnd) return label
   return `${label} until ${until}`
 }

@@ -169,6 +169,7 @@ const LIST_ROW = {
   startsAt: new Date(START_UNIX * 1000),
   desiredArrival: new Date(ARRIVAL_UNIX * 1000),
   timeline: [], // empty = Pending
+  pauses: [],
   totalDistanceMeters: 4_500_000,
 }
 
@@ -515,10 +516,30 @@ describe('GET /admin/b/:slug/trips', () => {
     expect(rows).toHaveLength(1)
 
     const row = rows[0]!
-    // status must be one of the four valid values
-    const VALID_STATUSES = ['Pending', 'Driving', 'Resting', 'Arrived']
+    const VALID_STATUSES = ['Pending', 'Driving', 'Resting', 'Paused', 'Arrived']
     expect(VALID_STATUSES).toContain(row['status'])
     // timeline must NOT appear in the response
     expect('timeline' in row).toBe(false)
+    expect('pauses' in row).toBe(false)
+  })
+
+  it('shows a trip on an active pause as Paused', async () => {
+    const now = Math.floor(Date.now() / 1000)
+    const onPause = {
+      ...LIST_ROW,
+      timeline: [
+        { type: 'driving', tStart: now - 3600, tEnd: now + 3600, distStart: 0, distEnd: 1000 },
+      ],
+      pauses: [{ pausedAt: now - 600 }],
+    }
+    const listAll = vi.fn().mockResolvedValue([onPause])
+    vi.mocked(tenantDb).mockReturnValue(
+      makeTenantDb({ trips: { ...makeTenantDb().trips, listAll } }) as never,
+    )
+
+    const res = await makeApp().request('/admin/b/brand-a/trips')
+
+    const [row] = (await res.json()) as Array<{ status: string }>
+    expect(row!.status).toBe('Paused')
   })
 })

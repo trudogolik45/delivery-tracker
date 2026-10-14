@@ -25,7 +25,8 @@ import { Separator } from '@/components/ui/separator'
 import { apiJson, apiRequest } from '@/lib/api'
 import { formatDateTime, formatMiles, formatShortDateTime } from '@/lib/format'
 import { TripMap } from '@/components/TripMap'
-import { deriveLateArrival, arrivalAtDestination } from '@/lib/trip-detail'
+import { tripAt } from '@delivery/simulation/trip-at'
+import { deriveLateArrival } from '@/lib/trip-detail'
 import type { TripAdmin, Segment } from '@delivery/schemas'
 
 export const Route = createFileRoute('/admin/b/$brandSlug/trips/$tripId')({
@@ -92,12 +93,10 @@ function TripDetail() {
   const shareUrl = `https://${data.shareDomain}/s/${data.shareHash}`
   // Поздний приезд выводится из сохранённого таймлайна (без расширения TripAdmin) [R8 AC6].
   const lateArrival = data.trip ? deriveLateArrival(data.desiredArrival, data.trip.segments) : false
-  // Фактическое прибытие к клиенту (конец последней езды; для раннего приезда — до ожидания).
-  const arrival = data.trip ? arrivalAtDestination(data.trip.segments) : null
-  const lastPause = data.trip?.pauses.at(-1)
-  const nowSec = Date.now() / 1000
-  const isPaused =
-    lastPause !== undefined && (lastPause.resumedAt === undefined || lastPause.resumedAt > nowSec)
+  // Приезд к точке (до ожидания при раннем приезде), сдвинутый на паузы.
+  const moment = data.trip ? tripAt(data.trip, Date.now() / 1000) : null
+  const arrival = moment?.arrivesAt ?? null
+  const isPaused = moment?.isPaused ?? false
 
   return (
     <div className="space-y-6">

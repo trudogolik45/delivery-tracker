@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Segment } from '@delivery/schemas'
-import { deriveLateArrival, arrivalAtDestination } from './trip-detail.js'
+import { deriveLateArrival } from './trip-detail.js'
 
 const desiredIso = '2026-06-20T00:00:00Z'
 const desiredUnix = Math.floor(new Date(desiredIso).getTime() / 1000)
@@ -43,26 +43,5 @@ describe('deriveLateArrival', () => {
   it('applies the +1s guard so an exact one-second overrun is not late', () => {
     const segs = [driving(desiredUnix - 100, desiredUnix + 1)]
     expect(deriveLateArrival(desiredIso, segs)).toBe(false)
-  })
-})
-
-describe('arrivalAtDestination', () => {
-  it('is null for empty segments', () => {
-    expect(arrivalAtDestination([])).toBeNull()
-  })
-
-  it('returns the last driving end for a late trip (no trailing wait)', () => {
-    const segs = [driving(0, 100), rest(100, 200, 'sleep'), driving(200, 500)]
-    expect(arrivalAtDestination(segs)).toBe(500)
-  })
-
-  it('returns physical arrival before the trailing wait for an early trip', () => {
-    const segs = [driving(0, 300), rest(300, 900, 'wait')]
-    expect(arrivalAtDestination(segs)).toBe(300)
-  })
-
-  it('skips a mid-route service_stop and returns the last driving tEnd', () => {
-    const segs = [driving(0, 100), rest(100, 18100, 'service_stop'), driving(18100, 500)]
-    expect(arrivalAtDestination(segs)).toBe(500)
   })
 })

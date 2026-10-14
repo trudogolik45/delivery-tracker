@@ -77,25 +77,8 @@ export type RestSegment = z.infer<typeof RestSegmentSchema>
 export const SegmentSchema = z.discriminatedUnion('type', [DrivingSegmentSchema, RestSegmentSchema])
 export type Segment = z.infer<typeof SegmentSchema>
 
-export const TripStatusSchema = z.enum(['Pending', 'Driving', 'Resting', 'Arrived'])
+export const TripStatusSchema = z.enum(['Pending', 'Driving', 'Resting', 'Paused', 'Arrived'])
 export type TripStatus = z.infer<typeof TripStatusSchema>
-
-// Единственный источник логики статуса — раньше дублировалась на клиенте
-// (apps/web/src/lib/trip-status.ts) и считалась из полного timeline в списке.
-export function tripStatusFromTimeline(
-  timeline: Segment[] | null | undefined,
-  nowSeconds: number,
-): TripStatus {
-  if (!timeline || timeline.length === 0) return 'Pending'
-  const firstSeg = timeline[0]
-  const lastSeg = timeline[timeline.length - 1]
-  if (!firstSeg || !lastSeg) return 'Pending'
-  if (nowSeconds < firstSeg.tStart) return 'Pending'
-  if (nowSeconds >= lastSeg.tEnd) return 'Arrived'
-  const current = timeline.find((s) => s.tStart <= nowSeconds && nowSeconds < s.tEnd)
-  if (!current) return 'Pending'
-  return current.type === 'driving' ? 'Driving' : 'Resting'
-}
 
 export const TripSchema = z.object({
   startedAt: z.number(),

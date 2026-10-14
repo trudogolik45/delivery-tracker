@@ -282,7 +282,7 @@ components:
 
     TripListItem:
       type: object
-      required: [id, shareHash, cargoId, cargoTitle, origin, destination, startsAt, desiredArrival, startedAt, totalDistance, timeline]
+      required: [id, shareHash, cargoId, cargoTitle, origin, destination, startsAt, desiredArrival, startedAt, totalDistance, status]
       properties:
         id:
           type: string
@@ -311,12 +311,12 @@ components:
         totalDistance:
           type: [number, "null"]
           description: Метры (null если trip не сгенерирован)
-        timeline:
-          oneOf:
-            - type: array
-              items:
-                $ref: "#/components/schemas/Segment"
-            - type: "null"
+        status:
+          type: string
+          enum: [Pending, Driving, Resting, Paused, Arrived]
+          description: >-
+            Состояние трипа на момент запроса с учётом пауз
+            (`tripAt` из `@delivery/simulation`). Paused — активна пауза.
 
     TripAdmin:
       allOf:
