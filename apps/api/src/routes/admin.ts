@@ -7,7 +7,7 @@ import { nanoid } from 'nanoid'
 import { promises as dns } from 'dns'
 import length from '@turf/length'
 import { TripSchema } from '@delivery/schemas'
-import type { PauseInterval, Segment } from '@delivery/schemas'
+import type { Brand, PauseInterval, Segment } from '@delivery/schemas'
 import {
   BrandSchema,
   BrandCreateSchema,
@@ -27,7 +27,7 @@ import { requireAuth, type AuthEnv } from '../auth/middleware.js'
 import { requireAdminBrand, type BrandEnv } from '../middleware/tenant.js'
 import { env } from '../env.js'
 import { storage, makeKey, sniffImageMime } from '../storage/index.js'
-import { resolvePhotoUrls, resolvePhotoUrlMap } from '../uploads.js'
+import { cargoWithPhotos } from '../cargo-view.js'
 
 type AdminEnv = AuthEnv & BrandEnv
 
@@ -131,49 +131,30 @@ brandScoped.get('/dns-status', async (c) => {
 
 // ── Cargo CRUD ────────────────────────────────────────────────────────────────
 
+// Все фото — загрузки этого бренда (чужой или несуществующий id → false).
+async function ownsAllPhotos(brand: Brand, photoUploadIds: string[]): Promise<boolean> {
+  if (photoUploadIds.length === 0) return true
+  const found = await tenantDb(brand).uploads.findOwnedIds(photoUploadIds)
+  return found.length === photoUploadIds.length
+}
+
 brandScoped.get('/cargo', async (c) => {
   const brand = c.get('brand')
   const rows = await tenantDb(brand).cargo.listAll()
-  const urlMap = await resolvePhotoUrlMap(
-    brand.id,
-    rows.flatMap((r) => r.photoUploadIds),
-  )
-  const result = rows.map((r) => ({
-    id: r.id,
-    title: r.title,
-    fields: r.fields as Record<string, string>,
-    photoUploadIds: r.photoUploadIds,
-    photoUrls: r.photoUploadIds
-      .map((id) => urlMap.get(id))
-      .filter((u): u is string => u !== undefined),
-    createdAt: r.createdAt.toISOString(),
-  }))
-  return c.json(result)
+  return c.json(await cargoWithPhotos(brand.id, rows))
 })
 
 brandScoped.post('/cargo', zValidator('json', CargoCreateSchema, onValidationError), async (c) => {
   const brand = c.get('brand')
   const { title, fields, photoUploadIds } = c.req.valid('json')
 
-  if (photoUploadIds.length > 0) {
-    const found = await tenantDb(brand).uploads.findOwnedIds(photoUploadIds)
-    if (found.length !== photoUploadIds.length) {
-      return c.json({ error: 'invalid photo upload id' }, 400)
-    }
+  if (!(await ownsAllPhotos(brand, photoUploadIds))) {
+    return c.json({ error: 'invalid photo upload id' }, 400)
   }
 
   const row = await tenantDb(brand).cargo.insert({ title, fields, photoUploadIds })
-  return c.json(
-    {
-      id: row.id,
-      title: row.title,
-      fields: row.fields as Record<string, string>,
-      photoUploadIds: row.photoUploadIds,
-      photoUrls: await resolvePhotoUrls(brand.id, row.photoUploadIds),
-      createdAt: row.createdAt.toISOString(),
-    },
-    201,
-  )
+  const [view] = await cargoWithPhotos(brand.id, [row])
+  return c.json(view, 201)
 })
 
 brandScoped.get('/cargo/:cargoId', async (c) => {
@@ -181,14 +162,8 @@ brandScoped.get('/cargo/:cargoId', async (c) => {
   const { cargoId } = c.req.param()
   const row = await tenantDb(brand).cargo.byId(cargoId)
   if (!row) return c.json({ error: 'not found' }, 404)
-  return c.json({
-    id: row.id,
-    title: row.title,
-    fields: row.fields as Record<string, string>,
-    photoUploadIds: row.photoUploadIds,
-    photoUrls: await resolvePhotoUrls(brand.id, row.photoUploadIds),
-    createdAt: row.createdAt.toISOString(),
-  })
+  const [view] = await cargoWithPhotos(brand.id, [row])
+  return c.json(view)
 })
 
 brandScoped.put(
@@ -202,24 +177,15 @@ brandScoped.put(
     const existing = await tenantDb(brand).cargo.byId(cargoId)
     if (!existing) return c.json({ error: 'not found' }, 404)
 
-    if (updates.photoUploadIds !== undefined && updates.photoUploadIds.length > 0) {
-      const found = await tenantDb(brand).uploads.findOwnedIds(updates.photoUploadIds)
-      if (found.length !== updates.photoUploadIds.length) {
-        return c.json({ error: 'invalid photo upload id' }, 400)
-      }
+    if (updates.photoUploadIds && !(await ownsAllPhotos(brand, updates.photoUploadIds))) {
+      return c.json({ error: 'invalid photo upload id' }, 400)
     }
 
     // Строку могли удалить параллельно между проверкой existing и update.
     const row = await tenantDb(brand).cargo.update(cargoId, updates)
     if (!row) return c.json({ error: 'not found' }, 404)
-    return c.json({
-      id: row.id,
-      title: row.title,
-      fields: row.fields as Record<string, string>,
-      photoUploadIds: row.photoUploadIds,
-      photoUrls: await resolvePhotoUrls(brand.id, row.photoUploadIds),
-      createdAt: row.createdAt.toISOString(),
-    })
+    const [view] = await cargoWithPhotos(brand.id, [row])
+    return c.json(view)
   },
 )
 
