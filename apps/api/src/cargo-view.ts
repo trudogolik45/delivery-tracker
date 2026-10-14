@@ -1,5 +1,5 @@
-import type { CargoWithPhotos } from '@delivery/schemas'
-import type { CargoRow } from './db/tenant.js'
+import type { Brand, CargoWithPhotos } from '@delivery/schemas'
+import { tenantDb, type CargoRow } from './db/tenant.js'
 import { resolvePhotoUrlMap } from './uploads.js'
 
 type CargoFields = Pick<CargoRow, 'id' | 'title' | 'fields' | 'photoUploadIds' | 'createdAt'>
@@ -31,4 +31,11 @@ export async function cargoWithPhotos(
     rows.flatMap((row) => row.photoUploadIds),
   )
   return rows.map((row) => toCargoWithPhotos(row, photoUrlById))
+}
+
+// Все фото — загрузки этого бренда (чужой или несуществующий id → false).
+export async function ownsAllPhotos(brand: Brand, photoUploadIds: string[]): Promise<boolean> {
+  if (photoUploadIds.length === 0) return true
+  const found = await tenantDb(brand).uploads.findOwnedIds(photoUploadIds)
+  return found.length === photoUploadIds.length
 }

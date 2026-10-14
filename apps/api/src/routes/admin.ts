@@ -7,7 +7,7 @@ import { nanoid } from 'nanoid'
 import { promises as dns } from 'dns'
 import length from '@turf/length'
 import { TripSchema } from '@delivery/schemas'
-import type { Brand, PauseInterval, Segment } from '@delivery/schemas'
+import type { PauseInterval, Segment } from '@delivery/schemas'
 import {
   BrandSchema,
   BrandCreateSchema,
@@ -27,7 +27,7 @@ import { requireAuth, type AuthEnv } from '../auth/middleware.js'
 import { requireAdminBrand, type BrandEnv } from '../middleware/tenant.js'
 import { env } from '../env.js'
 import { storage, makeKey, sniffImageMime } from '../storage/index.js'
-import { cargoWithPhotos } from '../cargo-view.js'
+import { cargoWithPhotos, ownsAllPhotos } from '../cargo-view.js'
 
 type AdminEnv = AuthEnv & BrandEnv
 
@@ -130,13 +130,6 @@ brandScoped.get('/dns-status', async (c) => {
 })
 
 // ── Cargo CRUD ────────────────────────────────────────────────────────────────
-
-// Все фото — загрузки этого бренда (чужой или несуществующий id → false).
-async function ownsAllPhotos(brand: Brand, photoUploadIds: string[]): Promise<boolean> {
-  if (photoUploadIds.length === 0) return true
-  const found = await tenantDb(brand).uploads.findOwnedIds(photoUploadIds)
-  return found.length === photoUploadIds.length
-}
 
 brandScoped.get('/cargo', async (c) => {
   const brand = c.get('brand')
