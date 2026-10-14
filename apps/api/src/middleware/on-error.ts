@@ -1,11 +1,13 @@
 import type { ErrorHandler } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 
-// Ошибка клиента от Hono (битый JSON и т. п.) — его статус и текст, без error-лога.
+// Наружу отдаём только 400 от Hono (битый JSON): его текст — константа без внутренностей.
+// Любой другой HTTPException (401/403 и т. п.) остаётся безликим 500 — иначе текст и
+// различимый статус утекут клиенту, например 401 вместо 404 у /internal/*.
 // Неожиданная ошибка — в лог со стектрейсом, клиенту безликий 500.
 export const onError: ErrorHandler = (err, c) => {
-  if (err instanceof HTTPException && err.status < 500) {
-    return c.json({ error: err.message }, err.status)
+  if (err instanceof HTTPException && err.status === 400) {
+    return c.json({ error: err.message }, 400)
   }
 
   console.error(

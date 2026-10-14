@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
+import { HTTPException } from 'hono/http-exception'
 import { onError } from './on-error.js'
 
 function makeApp() {
@@ -12,6 +13,9 @@ function makeApp() {
   )
   app.get('/boom', () => {
     throw new Error('db exploded')
+  })
+  app.get('/denied', () => {
+    throw new HTTPException(401, { message: 'token expired for internal caller' })
   })
   return app
 }
@@ -42,5 +46,11 @@ describe('onError', () => {
     expect(res.status).toBe(400)
     expect(await res.json()).toEqual({ error: 'Malformed JSON in request body' })
     expect(console.error).not.toHaveBeenCalled()
+  })
+  it('keeps other client errors behind the generic 500 so their text never leaks', async () => {
+    const res = await makeApp().request('/denied')
+
+    expect(res.status).toBe(500)
+    expect(await res.json()).toEqual({ error: 'internal' })
   })
 })

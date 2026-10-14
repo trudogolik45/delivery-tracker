@@ -50,9 +50,11 @@ vi.mock('../db/tenant.js', () => ({ tenantDb: vi.fn() }))
 
 import { tenantDb } from '../db/tenant.js'
 import { adminRoutes } from './admin.js'
+import { onError } from '../middleware/on-error.js'
 
 function makeApp() {
   const app = new Hono()
+  app.onError(onError)
   app.route('/admin', adminRoutes)
   return app
 }
@@ -146,6 +148,20 @@ describe('PUT /admin/b/:slug/cargo/:cargoId', () => {
 
     expect(res.status).toBe(200)
     expect(update).toHaveBeenCalledWith(CARGO_ID, { title: 'New' })
+  })
+
+  it('returns 400 for a malformed JSON body', async () => {
+    vi.mocked(tenantDb).mockReturnValue(makeTenantDb() as never)
+
+    const app = makeApp()
+    const res = await app.request(`/admin/b/brand-a/cargo/${CARGO_ID}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: '{"title":',
+    })
+
+    expect(res.status).toBe(400)
+    expect(((await res.json()) as { error: string }).error).toBe('Malformed JSON in request body')
   })
 
   it('returns 400 for an empty update', async () => {
