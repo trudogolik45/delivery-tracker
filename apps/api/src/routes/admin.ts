@@ -5,9 +5,7 @@ import { onValidationError } from '../middleware/validate.js'
 import { eq, and, or } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { promises as dns } from 'dns'
-import length from '@turf/length'
 import { TripSchema } from '@delivery/schemas'
-import type { PauseInterval, Segment } from '@delivery/schemas'
 import {
   BrandSchema,
   BrandCreateSchema,
@@ -19,7 +17,6 @@ import {
   TripCreateResponseSchema,
 } from '@delivery/schemas'
 import { generateTrip } from '@delivery/simulation/generate'
-import { tripAt } from '@delivery/simulation/trip-at'
 import { db } from '../db/index.js'
 import { brands } from '../db/schema.js'
 import { tenantDb } from '../db/tenant.js'
@@ -28,6 +25,7 @@ import { requireAdminBrand, type BrandEnv } from '../middleware/tenant.js'
 import { env } from '../env.js'
 import { storage, makeKey, sniffImageMime } from '../storage/index.js'
 import { cargoWithPhotos, ownsAllPhotos } from '../cargo-view.js'
+import { toTrip, toTripListItem } from '../trip-view.js'
 
 type AdminEnv = AuthEnv & BrandEnv
 
@@ -195,32 +193,8 @@ brandScoped.delete('/cargo/:cargoId', async (c) => {
 brandScoped.get('/trips', async (c) => {
   const brand = c.get('brand')
   const rows = await tenantDb(brand).trips.listAll()
-  return c.json(
-    rows.map((r) => {
-      return {
-        id: r.id,
-        shareHash: r.shareHash,
-        cargoId: r.cargoId,
-        cargoTitle: r.cargoTitle ?? '',
-        origin: r.origin,
-        destination: r.destination,
-        startsAt: r.startsAt.toISOString(),
-        desiredArrival: r.desiredArrival.toISOString(),
-        startedAt:
-          Array.isArray(r.timeline) && r.timeline.length > 0
-            ? (r.timeline[0] as { tStart: number }).tStart
-            : null,
-        totalDistance: r.totalDistanceMeters ?? null,
-        status: tripAt(
-          {
-            segments: Array.isArray(r.timeline) ? (r.timeline as Segment[]) : [],
-            pauses: Array.isArray(r.pauses) ? (r.pauses as PauseInterval[]) : [],
-          },
-          Math.floor(Date.now() / 1000),
-        ).status,
-      }
-    }),
-  )
+  const now = Math.floor(Date.now() / 1000)
+  return c.json(rows.map((row) => toTripListItem(row, now)))
 })
 
 brandScoped.get('/trips/:tripId', async (c) => {
@@ -229,29 +203,9 @@ brandScoped.get('/trips/:tripId', async (c) => {
   const row = await tenantDb(brand).trips.byId(tripId)
   if (!row) return c.json({ error: 'not found' }, 404)
 
-  const pauses = Array.isArray(row.pauses) ? row.pauses : []
-
-  let tripObj = null
-  if (row.routeGeometry && row.timeline) {
-    // Cold path (one admin viewing one trip) — keep the per-field parse. It
-    // guards `segments[0].tStart` below against an empty/garbage timeline, and
-    // there is no throughput argument to drop it here (unlike /share).
-    const polyline = TripSchema.shape.polyline.parse(row.routeGeometry)
-    const segments = TripSchema.shape.segments.parse(row.timeline)
-    const totalDistance =
-      row.totalDistanceMeters ??
-      Math.round(
-        length({ type: 'Feature', geometry: polyline, properties: {} }, { units: 'kilometers' }) *
-          1000,
-      )
-    tripObj = TripSchema.parse({
-      startedAt: segments[0]!.tStart,
-      polyline,
-      totalDistance,
-      segments,
-      pauses,
-    })
-  }
+  // Медленный путь (один админ смотрит один трип) — проверяем сохранённую форму целиком.
+  const stored = toTrip(row)
+  const trip = stored ? TripSchema.parse(stored) : null
 
   return c.json({
     id: row.id,
@@ -264,8 +218,8 @@ brandScoped.get('/trips/:tripId', async (c) => {
     waypoints: row.waypoints,
     startsAt: row.startsAt.toISOString(),
     desiredArrival: row.desiredArrival.toISOString(),
-    pauses,
-    trip: tripObj,
+    pauses: trip?.pauses ?? [],
+    trip,
   })
 })
 

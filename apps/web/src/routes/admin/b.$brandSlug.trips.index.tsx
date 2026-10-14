@@ -15,6 +15,7 @@ import { apiJson } from '@/lib/api'
 import { formatDate } from '@/lib/format'
 import { statusBadgeVariant } from '@/lib/trip-status'
 import type { TripListItem } from '@delivery/schemas'
+import { placeLabel } from '@/lib/place'
 
 export const Route = createFileRoute('/admin/b/$brandSlug/trips/')({
   component: TripsList,
@@ -71,11 +72,9 @@ function TripsList() {
                 <TableCell>
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <MapPin className="h-3 w-3" />
-                    {(t.origin as { label?: string }).label ??
-                      `${(t.origin as { lat: number }).lat.toFixed(2)},${(t.origin as { lng: number }).lng.toFixed(2)}`}
+                    {placeLabel(t.origin)}
                     {' → '}
-                    {(t.destination as { label?: string }).label ??
-                      `${(t.destination as { lat: number }).lat.toFixed(2)},${(t.destination as { lng: number }).lng.toFixed(2)}`}
+                    {placeLabel(t.destination)}
                   </div>
                 </TableCell>
                 <TableCell>

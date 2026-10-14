@@ -27,8 +27,8 @@ export type TripJoined = TripRow & {
   cargoPhotoUploadIds: string[]
 }
 
-// Lighter row for admin trip lists — no waypoints / route geometry. Pauses stay:
-// without them the list cannot tell a paused trip (status Paused).
+// Облегчённая строка для списка трипов: без waypoints и геометрии маршрута. Паузы
+// нужны — без них список не отличит трип на паузе (статус Paused).
 export type TripListRow = Pick<
   TripRow,
   | 'id'
@@ -165,52 +165,22 @@ export function tenantDb(brand: Brand): TenantDb {
     cargoTitle: cargo.title,
   } as const
 
-  function toTripJoined(row: {
-    id: string
-    brandId: string
-    cargoId: string
-    shareHash: string
-    origin: unknown
-    destination: unknown
-    waypoints: unknown
-    startsAt: Date
-    desiredArrival: Date
-    pauses: unknown
-    routeGeometry: unknown
-    timeline: unknown
-    totalDistanceMeters: number | null
-    createdAt: Date
-    cargoTitle: string | null
-    cargoFields: unknown
-    cargoPhotoUploadIds: string[] | null
-  }): TripJoined {
-    return {
-      id: row.id,
-      brandId: row.brandId,
-      cargoId: row.cargoId,
-      shareHash: row.shareHash,
-      origin: row.origin,
-      destination: row.destination,
-      waypoints: row.waypoints,
-      startsAt: row.startsAt,
-      desiredArrival: row.desiredArrival,
-      pauses: row.pauses,
-      routeGeometry: row.routeGeometry,
-      timeline: row.timeline,
-      totalDistanceMeters: row.totalDistanceMeters,
-      createdAt: row.createdAt,
-      cargoTitle: row.cargoTitle,
-      cargoFields: row.cargoFields,
-      cargoPhotoUploadIds: row.cargoPhotoUploadIds ?? [],
-    }
-  }
+  // Груз подтягиваем только своего бренда — одно условие для всех запросов трипов.
+  const cargoOfBrand = and(eq(cargo.id, trips.cargoId), eq(cargo.brandId, brandId))
+
+  // leftJoin даёт null, если груза нет; для трипа это пустой список фото.
+  const toTripJoined = (
+    row: Omit<TripJoined, 'cargoPhotoUploadIds'> & {
+      cargoPhotoUploadIds: string[] | null
+    },
+  ): TripJoined => ({ ...row, cargoPhotoUploadIds: row.cargoPhotoUploadIds ?? [] })
 
   const tripsApi: TenantDb['trips'] = {
     async byShareHash(hash) {
       const [row] = await db
         .select(tripJoinedSelect)
         .from(trips)
-        .leftJoin(cargo, and(eq(cargo.id, trips.cargoId), eq(cargo.brandId, brandId)))
+        .leftJoin(cargo, cargoOfBrand)
         .where(and(eq(trips.brandId, brandId), eq(trips.shareHash, hash)))
         .limit(1)
       return row ? toTripJoined(row) : undefined
@@ -220,7 +190,7 @@ export function tenantDb(brand: Brand): TenantDb {
       const [row] = await db
         .select(tripJoinedSelect)
         .from(trips)
-        .leftJoin(cargo, and(eq(cargo.id, trips.cargoId), eq(cargo.brandId, brandId)))
+        .leftJoin(cargo, cargoOfBrand)
         .where(and(eq(trips.id, id), eq(trips.brandId, brandId)))
         .limit(1)
       return row ? toTripJoined(row) : undefined
@@ -230,7 +200,7 @@ export function tenantDb(brand: Brand): TenantDb {
       return await db
         .select(tripListSelect)
         .from(trips)
-        .leftJoin(cargo, eq(trips.cargoId, cargo.id))
+        .leftJoin(cargo, cargoOfBrand)
         .where(eq(trips.brandId, brandId))
     },
 
