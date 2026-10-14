@@ -1,12 +1,11 @@
 import { Hono } from 'hono'
 import { sql } from 'drizzle-orm'
-import length from '@turf/length'
 import { ShareResponseSchema } from '@delivery/schemas'
-import type { Trip } from '@delivery/schemas'
 import { db } from '../db/index.js'
 import { brands } from '../db/schema.js'
 import { tenantDb } from '../db/tenant.js'
 import { resolvePhotoUrls } from '../uploads.js'
+import { toTrip } from '../trip-view.js'
 
 export const shareRoutes = new Hono()
 
@@ -45,39 +44,18 @@ shareRoutes.get('/:hash', async (c) => {
     return c.json({ error: 'trip not found' }, 404)
   }
 
-  if (!row.routeGeometry || !row.timeline) {
+  const trip = toTrip(row)
+  if (!trip) {
     return c.json({ error: 'trip not generated' }, 409)
   }
 
-  // Hot path (every share-page poll). routeGeometry/timeline are produced by
-  // generateTrip (typed Trip) and stored as jsonb. We cast instead of parsing
-  // per field because the single ShareResponseSchema.parse below re-validates
-  // the entire trip (ShareResponseSchema embeds TripSchema) — the per-field
-  // parses were redundant with it. That outbound parse is the SOLE runtime
-  // guard on stored shape (nothing parses at INSERT); do not remove it.
-  const polyline = row.routeGeometry as Trip['polyline']
-  const segments = row.timeline as Trip['segments']
-
-  // Prefer the persisted total (computed once at trip generation). Fall back
-  // to a turf recompute only for legacy rows that pre-date the column.
-  const totalDistance =
-    row.totalDistanceMeters ??
-    Math.round(
-      length({ type: 'Feature', geometry: polyline, properties: {} }, { units: 'kilometers' }) *
-        1000,
-    )
-
   const photoUrls = await resolvePhotoUrls(brand.id, row.cargoPhotoUploadIds)
 
+  // Горячий путь (каждый опрос share-страницы): toTrip не парсит jsonb, поэтому этот
+  // outbound parse — ЕДИНСТВЕННАЯ runtime-проверка сохранённой формы. Не удалять.
   return c.json(
     ShareResponseSchema.parse({
-      trip: {
-        startedAt: Math.floor(row.startsAt.getTime() / 1000),
-        polyline,
-        totalDistance,
-        segments,
-        pauses: Array.isArray(row.pauses) ? row.pauses : [],
-      },
+      trip,
       cargo: {
         id: row.cargoId,
         title: row.cargoTitle,

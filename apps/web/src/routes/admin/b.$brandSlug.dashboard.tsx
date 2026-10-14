@@ -8,6 +8,7 @@ import { apiJson } from '@/lib/api'
 import { formatDate } from '@/lib/format'
 import { statusBadgeVariant } from '@/lib/trip-status'
 import type { CargoWithPhotos, TripListItem } from '@delivery/schemas'
+import { placeLabel } from '@/lib/place'
 
 export const Route = createFileRoute('/admin/b/$brandSlug/dashboard')({
   component: BrandDashboard,
@@ -130,9 +131,8 @@ function BrandDashboard() {
           }
         >
           {recentTrips.map((t) => {
-            const origin = (t.origin as { label?: string }).label ?? coordsLabel(t.origin)
-            const destination =
-              (t.destination as { label?: string }).label ?? coordsLabel(t.destination)
+            const origin = placeLabel(t.origin)
+            const destination = placeLabel(t.destination)
             const status = t.status
             return (
               <Link
@@ -203,9 +203,4 @@ function Section({
       <div className="flex justify-end">{viewAllAction}</div>
     </section>
   )
-}
-
-function coordsLabel(point: unknown): string {
-  const p = point as { lat: number; lng: number }
-  return `${p.lat.toFixed(2)},${p.lng.toFixed(2)}`
 }

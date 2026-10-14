@@ -49,6 +49,8 @@ vi.mock('./index.js', () => {
 })
 
 // Import AFTER the mock is registered.
+import { PgDialect } from 'drizzle-orm/pg-core'
+import type { SQL } from 'drizzle-orm'
 import { tenantDb } from './tenant.js'
 
 const BRAND = {
@@ -130,6 +132,23 @@ describe('tenantDb — brand_id is embedded in every predicate', () => {
     const strings = whereStrings(wheres[0]!)
     expect(strings).toContain('brand_id')
     expect(strings).toContain('share_hash')
+  })
+
+  it.each([
+    ['byId', () => tenantDb(BRAND).trips.byId('trip-uuid')],
+    ['byShareHash', () => tenantDb(BRAND).trips.byShareHash('abc123')],
+    ['listAll', () => tenantDb(BRAND).trips.listAll()],
+  ] as const)('trips.%s joins cargo only within the same brand', async (_name, query) => {
+    resultQueue.push([])
+    resultQueue.push([])
+    await query()
+
+    const joins = chainCalls.filter((c) => c.method === 'leftJoin')
+    expect(joins.length).toBe(1)
+    // Рендерим настоящий SQL: обход объекта находит brand_id через связи таблицы
+    // у любой колонки и пропустил бы условие без проверки бренда.
+    const { sql } = new PgDialect().sqlToQuery(joins[0]!.args[1] as SQL)
+    expect(sql).toContain('"cargo"."brand_id"')
   })
 
   it('uploads.findOwnedIds(ids) calls inArray on uploads.id and eq on brand_id', async () => {
