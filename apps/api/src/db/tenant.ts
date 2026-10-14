@@ -27,8 +27,8 @@ export type TripJoined = TripRow & {
   cargoPhotoUploadIds: string[]
 }
 
-// Lighter row for admin trip lists — no waypoints / route geometry. Pauses stay:
-// without them the list cannot tell a paused trip (status Paused).
+// Облегчённая строка для списка трипов: без waypoints и геометрии маршрута. Паузы
+// нужны — без них список не отличит трип на паузе (статус Paused).
 export type TripListRow = Pick<
   TripRow,
   | 'id'
