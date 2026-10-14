@@ -7,6 +7,7 @@ import { authRoutes } from './auth/routes.js'
 import { adminRoutes } from './routes/admin.js'
 import { internalRoutes } from './routes/internal.js'
 import { shareRoutes } from './routes/share.js'
+import { onError } from './middleware/on-error.js'
 
 const app = new Hono()
 
@@ -43,19 +44,7 @@ app.use(
   }),
 )
 
-app.onError((err, c) => {
-  console.error(
-    JSON.stringify({
-      t: new Date().toISOString(),
-      level: 'error',
-      method: c.req.method,
-      path: c.req.path,
-      msg: err instanceof Error ? err.message : String(err),
-      stack: err instanceof Error ? err.stack : undefined,
-    }),
-  )
-  return c.json({ error: 'internal' }, 500)
-})
+app.onError(onError)
 
 app.get('/health', (c) => c.json({ ok: true }))
 
