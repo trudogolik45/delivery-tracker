@@ -9,7 +9,7 @@ import { Card } from '@/components/ui/card'
 import { apiJson, API_BASE_URL } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { GeoSearch, type GeoPoint } from '@/components/GeoSearch'
-import { arrivalAtDestination } from '@/lib/trip-detail'
+import { tripAt } from '@delivery/simulation/trip-at'
 import { TimelineSummary } from '@/components/TimelineSummary'
 import { useLivePreview } from '@/hooks/useLivePreview'
 import {
@@ -91,7 +91,8 @@ function TripNew() {
   const trip = preview.data?.trip ?? null
   const lateArrival = preview.data?.lateArrival ?? false
   const lastSeg = trip?.segments.at(-1)
-  const arrival = trip ? arrivalAtDestination(trip.segments) : null
+  // У preview пауз нет — момент не важен, нужен только приезд к точке.
+  const arrival = trip ? tripAt(trip, trip.startedAt).arrivesAt : null
   const trailingWait =
     lastSeg && lastSeg.type === 'rest' && lastSeg.reason === 'wait' ? lastSeg : null
   const idleSeconds = trailingWait ? trailingWait.tEnd - trailingWait.tStart : 0

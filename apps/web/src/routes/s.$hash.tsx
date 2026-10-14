@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ShareResponseSchema, type ShareResponse } from '@delivery/schemas'
+import { tripAt } from '@delivery/simulation/trip-at'
 import { apiRequest } from '@/lib/api'
 import { formatDateTime, formatMiles } from '@/lib/format'
 import { TripMap } from '@/components/TripMap'
@@ -44,12 +45,8 @@ function SharePage() {
   }
 
   const fieldEntries = Object.entries(data.cargo.fields)
-  const lastSeg = data.trip.segments[data.trip.segments.length - 1]!
-  const eta = new Date(lastSeg.tEnd * 1000)
-  const lastPause = data.trip.pauses.at(-1)
-  const nowSec = Date.now() / 1000
-  const isPaused =
-    lastPause !== undefined && (lastPause.resumedAt === undefined || lastPause.resumedAt > nowSec)
+  // Клиенту — конец таймлайна (с ожиданием до желаемого времени), сдвинутый на паузы.
+  const { isPaused, completesAt } = tripAt(data.trip, Date.now() / 1000)
 
   return (
     <div className="flex h-screen flex-col md:flex-row">
@@ -62,7 +59,8 @@ function SharePage() {
               {isPaused && <Badge variant="secondary">Service stop</Badge>}
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              ETA {formatDateTime(eta)} · {formatMiles(data.trip.totalDistance)} total
+              ETA {completesAt !== null ? formatDateTime(completesAt * 1000) : '—'} ·{' '}
+              {formatMiles(data.trip.totalDistance)} total
             </p>
           </div>
 

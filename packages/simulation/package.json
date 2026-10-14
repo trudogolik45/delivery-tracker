@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     "./generate": "./src/generate.ts",
-    "./interpolate": "./src/interpolate.ts"
+    "./interpolate": "./src/interpolate.ts",
+    "./trip-at": "./src/trip-at.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

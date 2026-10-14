@@ -6,8 +6,8 @@ import { eq, and, or } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { promises as dns } from 'dns'
 import length from '@turf/length'
-import { TripSchema, tripStatusFromTimeline } from '@delivery/schemas'
-import type { Segment } from '@delivery/schemas'
+import { TripSchema } from '@delivery/schemas'
+import type { PauseInterval, Segment } from '@delivery/schemas'
 import {
   BrandSchema,
   BrandCreateSchema,
@@ -19,6 +19,7 @@ import {
   TripCreateResponseSchema,
 } from '@delivery/schemas'
 import { generateTrip } from '@delivery/simulation/generate'
+import { tripAt } from '@delivery/simulation/trip-at'
 import { db } from '../db/index.js'
 import { brands } from '../db/schema.js'
 import { tenantDb } from '../db/tenant.js'
@@ -251,10 +252,13 @@ brandScoped.get('/trips', async (c) => {
             ? (r.timeline[0] as { tStart: number }).tStart
             : null,
         totalDistance: r.totalDistanceMeters ?? null,
-        status: tripStatusFromTimeline(
-          Array.isArray(r.timeline) ? (r.timeline as Segment[]) : null,
+        status: tripAt(
+          {
+            segments: Array.isArray(r.timeline) ? (r.timeline as Segment[]) : [],
+            pauses: Array.isArray(r.pauses) ? (r.pauses as PauseInterval[]) : [],
+          },
           Math.floor(Date.now() / 1000),
-        ),
+        ).status,
       }
     }),
   )
