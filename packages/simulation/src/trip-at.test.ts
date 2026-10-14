@@ -74,3 +74,54 @@ describe('tripAt — arrival and completion', () => {
     })
   })
 })
+
+describe('tripAt — which pauses move the times', () => {
+  it('does not move the times by a pause that started after the event', () => {
+    // Приехал в 300, всё закончилось в 400; пауза в 450 — уже после доставки.
+    const moment = at(500, [{ pausedAt: 450 }])
+
+    expect(moment).toMatchObject({ arrivesAt: 300, completesAt: 400, status: 'Arrived' })
+  })
+
+  it('moves only the events still ahead when a pause hits the trailing wait', () => {
+    // Пауза 20 c в 350: приезд (300) уже был, окончание (400) сдвигается до 420.
+    const moment = at(380, [{ pausedAt: 350, resumedAt: 370 }])
+
+    expect(moment).toMatchObject({ arrivesAt: 300, completesAt: 420 })
+  })
+
+  it('uses the full length of a pause with a scheduled resume', () => {
+    const moment = at(80, [{ pausedAt: 50, resumedAt: 90 }])
+
+    expect(moment).toMatchObject({ arrivesAt: 340, completesAt: 440 })
+  })
+
+  it('adds up several pauses', () => {
+    const moment = at(450, [
+      { pausedAt: 20, resumedAt: 30 },
+      { pausedAt: 200, resumedAt: 260 },
+    ])
+
+    expect(moment).toMatchObject({ arrivesAt: 370, completesAt: 470, status: 'Resting' })
+  })
+
+  it('a pause before the start delays the whole trip', () => {
+    const moment = at(-5, [{ pausedAt: -10 }])
+
+    expect(moment).toMatchObject({ status: 'Pending', isPaused: true, arrivesAt: 305 })
+  })
+})
+
+describe('tripAt — current stop', () => {
+  it('names the stop and when it ends on the wall clock', () => {
+    expect(at(120).stop).toEqual({ reason: 'break', endsAt: 150 })
+    expect(at(130, [{ pausedAt: 20, resumedAt: 30 }]).stop).toEqual({
+      reason: 'break',
+      endsAt: 160,
+    })
+  })
+
+  it('has no stop while driving', () => {
+    expect(at(50).stop).toBeNull()
+  })
+})

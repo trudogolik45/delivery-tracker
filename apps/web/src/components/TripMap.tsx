@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { Trip } from '@delivery/schemas'
-import { interpolatePosition, totalPausedSeconds } from '@delivery/simulation/interpolate'
-import { tripAt } from '@delivery/simulation/trip-at'
+import { interpolatePosition } from '@delivery/simulation/interpolate'
+import { tripAt, type TripMoment } from '@delivery/simulation/trip-at'
 import { formatDateTime, formatMiles, formatTime } from '@/lib/format'
 import { MAP_STYLE } from '@/lib/map-style'
 
@@ -84,8 +84,6 @@ export function TripMap({ trip, cargoTitle, className, showFooter = true }: Trip
 
   const state = interpolatePosition(trip, now)
   const moment = tripAt(trip, now)
-  // Сегменты живут во времени таймлайна; на стене оно позже на всё время пауз.
-  const pausedSeconds = totalPausedSeconds(trip.pauses, now)
 
   return (
     <div className={`flex flex-col ${className ?? ''}`}>
@@ -102,9 +100,7 @@ export function TripMap({ trip, cargoTitle, className, showFooter = true }: Trip
       {showFooter && (
         <footer className="border-t px-6 py-3 text-sm">
           <div className="mb-2 flex items-center justify-between">
-            <span className="font-medium">
-              {moment.isPaused ? 'Paused' : describeStatus(state.segment, now, pausedSeconds)}
-            </span>
+            <span className="font-medium">{describeStatus(moment, now)}</span>
             <span className="text-muted-foreground">{(state.progress * 100).toFixed(1)}%</span>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -119,24 +115,19 @@ export function TripMap({ trip, cargoTitle, className, showFooter = true }: Trip
   )
 }
 
-function describeStatus(
-  segment: { type: 'driving' } | { type: 'rest'; reason: string; tEnd: number },
-  now: number,
-  pausedSeconds: number,
-): string {
-  if (segment.type === 'driving') return 'On the road'
-  const restEnd = segment.tEnd + pausedSeconds
-  const until = formatTime(restEnd * 1000)
-  const label =
-    segment.reason === 'break'
-      ? 'Break'
-      : segment.reason === 'sleep'
-        ? 'Resting'
-        : segment.reason === 'fuel'
-          ? 'Refueling'
-          : segment.reason === 'service_stop'
-            ? 'Service stop'
-            : 'Waiting'
-  if (now >= restEnd) return label
-  return `${label} until ${until}`
+// Карту видит и клиент: паузу диспетчера показываем как «Service stop», как бейдж share.
+function describeStatus(moment: TripMoment, now: number): string {
+  if (moment.isPaused) return 'Service stop'
+  if (!moment.stop) return 'On the road'
+  const label = STOP_LABELS[moment.stop.reason]
+  if (now >= moment.stop.endsAt) return label
+  return `${label} until ${formatTime(moment.stop.endsAt * 1000)}`
+}
+
+const STOP_LABELS: Record<NonNullable<TripMoment['stop']>['reason'], string> = {
+  break: 'Break',
+  sleep: 'Resting',
+  fuel: 'Refueling',
+  service_stop: 'Service stop',
+  wait: 'Waiting',
 }
